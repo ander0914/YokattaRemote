@@ -83,9 +83,9 @@ object HidDescriptor {
     const val MOD_LEFT_GUI: Byte = 0x08
 
     // Keyboard Usage IDs (Page 0x07)
-    const val KEY_ENTER: Byte = 0x28        // Enter / Return
-    const val KEY_TAB: Byte = 0x2B          // Meta + Tab = Recents
-    const val KEY_SPACE: Byte = 0x2C        // Spacebar
+    const val KEY_ENTER: Byte = 0x28
+    const val KEY_TAB: Byte = 0x2B
+    const val KEY_SPACE: Byte = 0x2C
     const val KEY_RIGHT: Byte = 0x4F
     const val KEY_LEFT: Byte = 0x50
     const val KEY_DOWN: Byte = 0x51

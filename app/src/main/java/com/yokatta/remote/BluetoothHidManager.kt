@@ -179,17 +179,28 @@ class BluetoothHidManager(
         return true
     }
 
-    // === Mouse Reports (先微移 1px 喚醒隱藏游標再點擊左鍵) ===
+    // === Mouse Reports (游標移動 + 左鍵點擊 + 拖曳) ===
+    fun sendMouseMove(dx: Int, dy: Int, leftButtonHeld: Boolean = false): Boolean {
+        val host = connectedHost ?: return false
+        val clampedX = dx.coerceIn(-127, 127).toByte()
+        val clampedY = dy.coerceIn(-127, 127).toByte()
+        val buttons: Byte = if (leftButtonHeld) 0x01 else 0x00
+        return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(buttons, clampedX, clampedY)) == true
+    }
+
     fun sendMouseLeftDown(): Boolean {
         val host = connectedHost ?: return false
-        val hid = hidDevice ?: return false
-        hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0x01, 0x00))
-        hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0xFF.toByte(), 0x00))
-        return hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x01, 0x00, 0x00))
+        return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x01, 0x00, 0x00)) == true
     }
 
     fun sendMouseLeftUp(): Boolean {
         val host = connectedHost ?: return false
         return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0x00, 0x00)) == true
+    }
+
+    fun tapMouseLeftClick(): Boolean {
+        if (!sendMouseLeftDown()) return false
+        mainHandler.postDelayed({ sendMouseLeftUp() }, 70)
+        return true
     }
 }

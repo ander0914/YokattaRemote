@@ -25,32 +25,49 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
 
     companion object {
         private const val PREFS_NAME = "yokatta_remote_prefs"
         private const val KEY_OK_MODE = "ok_mode"
+        private const val KEY_PANEL_MODE = "panel_mode"
+        private const val KEY_SENSITIVITY = "touchpad_sensitivity"
         private const val OK_MODE_ENTER = 0
         private const val OK_MODE_DPAD_CENTER = 1
         private const val OK_MODE_SPACE = 2
         private const val OK_MODE_MOUSE_CLICK = 3
+        private const val PANEL_TOUCHPAD = 0
+        private const val PANEL_DPAD = 1
     }
 
     private var hidService: HidForegroundService? = null
     private var isBound = false
     private var okMode: Int = OK_MODE_ENTER
+    private var panelMode: Int = PANEL_TOUCHPAD
+    private var sensitivityLevel: Int = 1 // 0=低(1.0), 1=中(1.6), 2=高(2.4)
 
     private lateinit var tvStatus: TextView
     private lateinit var statusDot: View
     private lateinit var btnConnect: MaterialButton
     private lateinit var tvOkMode: TextView
 
+    private lateinit var btnTabTouchpad: MaterialButton
+    private lateinit var btnTabDpad: MaterialButton
+    private lateinit var containerTouchpad: View
+    private lateinit var containerDpad: View
+    private lateinit var btnSensitivity: MaterialButton
+
+    private val sensitivityValues = floatArrayOf(1.0f, 1.6f, 2.4f)
+    private val sensitivityLabels = arrayOf("靈敏度：低", "靈敏度：中", "靈敏度：高")
+
     private val okModeLabels = arrayOf(
-        "Enter 確認鍵（方向鍵選取後按）",
+        "Enter 確認鍵（首頁方向鍵選取後按）",
         "遙控器 DPAD_CENTER 確認鍵",
         "空白鍵 Space（播放器確認）",
-        "滑鼠左鍵點擊（需重新配對藍牙）"
+        "滑鼠左鍵點擊"
     )
 
     private val okModeShortLabels = arrayOf(
@@ -107,16 +124,49 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         btnConnect = findViewById(R.id.btnConnect)
         tvOkMode = findViewById(R.id.tvOkMode)
 
+        btnTabTouchpad = findViewById(R.id.btnTabTouchpad)
+        btnTabDpad = findViewById(R.id.btnTabDpad)
+        containerTouchpad = findViewById(R.id.containerTouchpad)
+        containerDpad = findViewById(R.id.containerDpad)
+        btnSensitivity = findViewById(R.id.btnSensitivity)
+
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         okMode = prefs.getInt(KEY_OK_MODE, OK_MODE_ENTER).coerceIn(0, 3)
+        panelMode = prefs.getInt(KEY_PANEL_MODE, PANEL_TOUCHPAD).coerceIn(0, 1)
+        sensitivityLevel = prefs.getInt(KEY_SENSITIVITY, 1).coerceIn(0, 2)
+
         updateOkModeLabel()
+        updatePanelModeUi()
+        btnSensitivity.text = sensitivityLabels[sensitivityLevel]
 
         tvOkMode.setOnClickListener {
             vibrate(it)
             showOkModeDialog()
         }
 
+        btnTabTouchpad.setOnClickListener {
+            vibrate(it)
+            setPanelMode(PANEL_TOUCHPAD)
+        }
+
+        btnTabDpad.setOnClickListener {
+            vibrate(it)
+            setPanelMode(PANEL_DPAD)
+        }
+
+        btnSensitivity.setOnClickListener {
+            vibrate(it)
+            sensitivityLevel = (sensitivityLevel + 1) % sensitivityValues.size
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(KEY_SENSITIVITY, sensitivityLevel)
+                .apply()
+            btnSensitivity.text = sensitivityLabels[sensitivityLevel]
+        }
+
         setupRemoteButtons()
+        setupTouchpad()
+
         btnConnect.setOnClickListener {
             vibrate(it)
             val manager = hidService?.hidManager
@@ -154,6 +204,31 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         }
     }
 
+    private fun setPanelMode(mode: Int) {
+        panelMode = mode
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_PANEL_MODE, panelMode)
+            .apply()
+        updatePanelModeUi()
+    }
+
+    private fun updatePanelModeUi() {
+        val activeColor = ContextCompat.getColorStateList(this, R.color.accent_voice)
+        val inactiveColor = ContextCompat.getColorStateList(this, R.color.surface_button)
+        if (panelMode == PANEL_TOUCHPAD) {
+            containerTouchpad.visibility = View.VISIBLE
+            containerDpad.visibility = View.GONE
+            btnTabTouchpad.backgroundTintList = activeColor
+            btnTabDpad.backgroundTintList = inactiveColor
+        } else {
+            containerTouchpad.visibility = View.GONE
+            containerDpad.visibility = View.VISIBLE
+            btnTabTouchpad.backgroundTintList = inactiveColor
+            btnTabDpad.backgroundTintList = activeColor
+        }
+    }
+
     private fun updateOkModeLabel() {
         tvOkMode.text = "OK 模式：${okModeShortLabels[okMode]} ▾"
     }
@@ -173,6 +248,83 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
             }
             .setNegativeButton("取消", null)
             .show()
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupTouchpad() {
+        val touchpadArea = findViewById<View>(R.id.touchpadArea)
+        var lastX = 0f
+        var lastY = 0f
+        var downX = 0f
+        var downY = 0f
+        var downTime = 0L
+        var moved = false
+
+        touchpadArea.setOnTouchListener { v, event ->
+            // 防止外層 ScrollView 搶走上下滑動手勢
+            v.parent?.requestDisallowInterceptTouchEvent(true)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    lastX = event.x
+                    lastY = event.y
+                    downX = event.x
+                    downY = event.y
+                    downTime = System.currentTimeMillis()
+                    moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val sensitivity = sensitivityValues[sensitivityLevel]
+                    val dx = ((event.x - lastX) * sensitivity).roundToInt()
+                    val dy = ((event.y - lastY) * sensitivity).roundToInt()
+                    if (abs(event.x - downX) > 12f || abs(event.y - downY) > 12f) {
+                        moved = true
+                    }
+                    if (dx != 0 || dy != 0) {
+                        lastX = event.x
+                        lastY = event.y
+                        hidService?.hidManager?.sendMouseMove(dx, dy)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val elapsed = System.currentTimeMillis() - downTime
+                    if (!moved && elapsed < 260) {
+                        vibrate(v)
+                        if (ensureConnected()) {
+                            hidService?.hidManager?.tapMouseLeftClick()
+                        }
+                    }
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // 獨立滑鼠左鍵按鈕（按壓同步，方便點擊）
+        findViewById<View>(R.id.btnMouseLeftClick).setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    vibrate(v)
+                    if (ensureConnected()) {
+                        hidService?.hidManager?.sendMouseLeftDown()
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    hidService?.hidManager?.sendMouseLeftUp()
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun hasBluetoothPermission(): Boolean {
@@ -241,13 +393,12 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerHold(R.id.btnVolUp, HidDescriptor.CONSUMER_VOLUME_UP)
         bindConsumerHold(R.id.btnVolDown, HidDescriptor.CONSUMER_VOLUME_DOWN)
 
-        // 3. 方向鍵（按壓同步送出）
+        // 3. 方向鍵與 OK
         bindKeyboardHold(R.id.btnUp, HidDescriptor.KEY_UP)
         bindKeyboardHold(R.id.btnDown, HidDescriptor.KEY_DOWN)
         bindKeyboardHold(R.id.btnLeft, HidDescriptor.KEY_LEFT)
         bindKeyboardHold(R.id.btnRight, HidDescriptor.KEY_RIGHT)
 
-        // OK 鍵：與方向鍵採用完全相同的按壓同步機制（ACTION_DOWN 送出按下、ACTION_UP 送出放開）
         findViewById<View>(R.id.btnOk).setOnTouchListener { v, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -263,7 +414,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
                             else -> false
                         }
                         if (!sent) {
-                            Toast.makeText(this, "OK 指令傳送失敗，請在藍牙設定取消配對後重新配對", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "OK 指令傳送失敗，請確認藍牙連線", Toast.LENGTH_SHORT).show()
                         }
                     }
                     true
@@ -282,7 +433,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
             }
         }
 
-        // 4. Android 系統導覽列（返回、首頁、最近使用程式）
+        // 4. Android 系統導覽列
         bindConsumerTap(R.id.btnBack, HidDescriptor.CONSUMER_BACK)
         bindConsumerTap(R.id.btnHome, HidDescriptor.CONSUMER_HOME)
         bindKeyboardTap(R.id.btnRecents, HidDescriptor.KEY_TAB, HidDescriptor.MOD_LEFT_GUI)
