@@ -28,12 +28,37 @@ import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
 
+    companion object {
+        private const val PREFS_NAME = "yokatta_remote_prefs"
+        private const val KEY_OK_MODE = "ok_mode"
+        private const val OK_MODE_ENTER = 0
+        private const val OK_MODE_DPAD_CENTER = 1
+        private const val OK_MODE_SPACE = 2
+        private const val OK_MODE_MOUSE_CLICK = 3
+    }
+
     private var hidService: HidForegroundService? = null
     private var isBound = false
+    private var okMode: Int = OK_MODE_ENTER
 
     private lateinit var tvStatus: TextView
     private lateinit var statusDot: View
     private lateinit var btnConnect: MaterialButton
+    private lateinit var tvOkMode: TextView
+
+    private val okModeLabels = arrayOf(
+        "Enter 確認鍵（方向鍵選取後按）",
+        "遙控器 DPAD_CENTER 確認鍵",
+        "空白鍵 Space（播放器確認）",
+        "滑鼠左鍵點擊（需重新配對藍牙）"
+    )
+
+    private val okModeShortLabels = arrayOf(
+        "Enter 確認",
+        "DPAD_CENTER",
+        "空白鍵 Space",
+        "滑鼠左鍵點擊"
+    )
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -80,6 +105,16 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         tvStatus = findViewById(R.id.tvStatus)
         statusDot = findViewById(R.id.statusDot)
         btnConnect = findViewById(R.id.btnConnect)
+        tvOkMode = findViewById(R.id.tvOkMode)
+
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        okMode = prefs.getInt(KEY_OK_MODE, OK_MODE_ENTER).coerceIn(0, 3)
+        updateOkModeLabel()
+
+        tvOkMode.setOnClickListener {
+            vibrate(it)
+            showOkModeDialog()
+        }
 
         setupRemoteButtons()
         btnConnect.setOnClickListener {
@@ -117,6 +152,27 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
             unbindService(serviceConnection)
             isBound = false
         }
+    }
+
+    private fun updateOkModeLabel() {
+        tvOkMode.text = "OK 模式：${okModeShortLabels[okMode]} ▾"
+    }
+
+    private fun showOkModeDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("選擇 OK 鍵發送模式")
+            .setSingleChoiceItems(okModeLabels, okMode) { dialog, which ->
+                okMode = which
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt(KEY_OK_MODE, okMode)
+                    .apply()
+                updateOkModeLabel()
+                Toast.makeText(this, "OK 鍵已切換為：${okModeShortLabels[okMode]}", Toast.LENGTH_SHORT).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun hasBluetoothPermission(): Boolean {
@@ -167,6 +223,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun setupRemoteButtons() {
         // 1. 電源/休眠、喚醒、語音
         bindConsumerTap(R.id.btnPower, HidDescriptor.CONSUMER_POWER)
@@ -184,17 +241,45 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerHold(R.id.btnVolUp, HidDescriptor.CONSUMER_VOLUME_UP)
         bindConsumerHold(R.id.btnVolDown, HidDescriptor.CONSUMER_VOLUME_DOWN)
 
-        // 3. 方向鍵與 OK
+        // 3. 方向鍵（按壓同步送出）
         bindKeyboardHold(R.id.btnUp, HidDescriptor.KEY_UP)
         bindKeyboardHold(R.id.btnDown, HidDescriptor.KEY_DOWN)
         bindKeyboardHold(R.id.btnLeft, HidDescriptor.KEY_LEFT)
         bindKeyboardHold(R.id.btnRight, HidDescriptor.KEY_RIGHT)
 
-        // OK 鍵：送出標準滑鼠左鍵點擊（等同在畫面游標處點擊一下）
-        findViewById<View>(R.id.btnOk).setOnClickListener {
-            vibrate(it)
-            if (!ensureConnected()) return@setOnClickListener
-            hidService?.hidManager?.tapMouseLeftClick()
+        // OK 鍵：與方向鍵採用完全相同的按壓同步機制（ACTION_DOWN 送出按下、ACTION_UP 送出放開）
+        findViewById<View>(R.id.btnOk).setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    v.isPressed = true
+                    vibrate(v)
+                    if (ensureConnected()) {
+                        val manager = hidService?.hidManager
+                        val sent = when (okMode) {
+                            OK_MODE_ENTER -> manager?.sendKeyboardDown(HidDescriptor.KEY_ENTER) == true
+                            OK_MODE_DPAD_CENTER -> manager?.sendConsumerDown(HidDescriptor.CONSUMER_DPAD_CENTER) == true
+                            OK_MODE_SPACE -> manager?.sendKeyboardDown(HidDescriptor.KEY_SPACE) == true
+                            OK_MODE_MOUSE_CLICK -> manager?.sendMouseLeftDown() == true
+                            else -> false
+                        }
+                        if (!sent) {
+                            Toast.makeText(this, "OK 指令傳送失敗，請在藍牙設定取消配對後重新配對", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.isPressed = false
+                    val manager = hidService?.hidManager
+                    when (okMode) {
+                        OK_MODE_ENTER, OK_MODE_SPACE -> manager?.sendKeyboardUp()
+                        OK_MODE_DPAD_CENTER -> manager?.sendConsumerUp()
+                        OK_MODE_MOUSE_CLICK -> manager?.sendMouseLeftUp()
+                    }
+                    true
+                }
+                else -> false
+            }
         }
 
         // 4. Android 系統導覽列（返回、首頁、最近使用程式）
@@ -207,9 +292,8 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerTap(R.id.btnPlayPause, HidDescriptor.CONSUMER_PLAY_PAUSE)
         bindConsumerTap(R.id.btnNext, HidDescriptor.CONSUMER_NEXT_TRACK)
 
-        // 6. 倒退 10 秒 / YouTube 啟動鍵 / 快進 10 秒
+        // 6. 倒退 10 秒 / 快進 10 秒
         bindConsumerTap(R.id.btnYtRewind, HidDescriptor.CONSUMER_REWIND)
-        bindKeyboardTap(R.id.btnYoutube, HidDescriptor.KEY_F12)
         bindConsumerTap(R.id.btnYtForward, HidDescriptor.CONSUMER_FAST_FORWARD)
     }
 

@@ -152,9 +152,10 @@ class BluetoothHidManager(
         return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_KEYBOARD, report) == true
     }
 
-    fun tapKeyboardKey(keyCode: Byte, modifier: Byte = HidDescriptor.MOD_NONE) {
-        if (!sendKeyboardDown(keyCode, modifier)) return
+    fun tapKeyboardKey(keyCode: Byte, modifier: Byte = HidDescriptor.MOD_NONE): Boolean {
+        if (!sendKeyboardDown(keyCode, modifier)) return false
         mainHandler.postDelayed({ sendKeyboardUp() }, 80)
+        return true
     }
 
     // === Consumer Control Reports ===
@@ -172,20 +173,23 @@ class BluetoothHidManager(
         return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_CONSUMER, report) == true
     }
 
-    fun tapConsumerKey(usageId: Int) {
-        if (!sendConsumerDown(usageId)) return
+    fun tapConsumerKey(usageId: Int): Boolean {
+        if (!sendConsumerDown(usageId)) return false
         mainHandler.postDelayed({ sendConsumerUp() }, 80)
+        return true
     }
 
-    // === Mouse Reports ===
-    fun tapMouseLeftClick() {
-        val host = connectedHost ?: return
-        val downReport = byteArrayOf(0x01, 0x00, 0x00)
-        val upReport = byteArrayOf(0x00, 0x00, 0x00)
-        if (hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, downReport) == true) {
-            mainHandler.postDelayed({
-                hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, upReport)
-            }, 80)
-        }
+    // === Mouse Reports (先微移 1px 喚醒隱藏游標再點擊左鍵) ===
+    fun sendMouseLeftDown(): Boolean {
+        val host = connectedHost ?: return false
+        val hid = hidDevice ?: return false
+        hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0x01, 0x00))
+        hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0xFF.toByte(), 0x00))
+        return hid.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x01, 0x00, 0x00))
+    }
+
+    fun sendMouseLeftUp(): Boolean {
+        val host = connectedHost ?: return false
+        return hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, byteArrayOf(0x00, 0x00, 0x00)) == true
     }
 }

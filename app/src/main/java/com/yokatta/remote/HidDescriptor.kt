@@ -47,7 +47,7 @@ object HidDescriptor {
         0x81.toByte(), 0x00.toByte(),       //   Input (Data, Array)
         0xC0.toByte(),                      // End Collection
 
-        // === Report ID 3: Mouse (Left Click = 畫面點擊一下) ===
+        // === Report ID 3: Mouse ===
         0x05.toByte(), 0x01.toByte(),       // Usage Page (Generic Desktop)
         0x09.toByte(), 0x02.toByte(),       // Usage (Mouse)
         0xA1.toByte(), 0x01.toByte(),       // Collection (Application)
@@ -83,9 +83,9 @@ object HidDescriptor {
     const val MOD_LEFT_GUI: Byte = 0x08
 
     // Keyboard Usage IDs (Page 0x07)
-    const val KEY_ENTER: Byte = 0x28
-    const val KEY_TAB: Byte = 0x2B
-    const val KEY_F12: Byte = 0x45          // 專屬快捷觸發鍵（搭配好咖機 Key Mapper 開啟 YouTube）
+    const val KEY_ENTER: Byte = 0x28        // Enter / Return
+    const val KEY_TAB: Byte = 0x2B          // Meta + Tab = Recents
+    const val KEY_SPACE: Byte = 0x2C        // Spacebar
     const val KEY_RIGHT: Byte = 0x4F
     const val KEY_LEFT: Byte = 0x50
     const val KEY_DOWN: Byte = 0x51
