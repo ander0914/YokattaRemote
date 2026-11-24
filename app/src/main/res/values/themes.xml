@@ -1,0 +1,26 @@
+<resources>
+    <style name="Theme.YokattaRemote" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/bg_night</item>
+        <item name="android:statusBarColor">@color/bg_night</item>
+        <item name="android:navigationBarColor">@color/bg_night</item>
+        <item name="colorPrimary">@color/accent_voice</item>
+        <item name="colorSurface">@color/surface_card</item>
+    </style>
+
+    <style name="RemoteButton" parent="Widget.Material3.Button">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="backgroundTint">@color/surface_button</item>
+        <item name="strokeColor">@color/border_subtle</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:minHeight">54dp</item>
+    </style>
+
+    <style name="RemoteRoundButton" parent="RemoteButton">
+        <item name="cornerRadius">999dp</item>
+    </style>
+</resources>

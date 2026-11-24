@@ -1,0 +1,17 @@
+<resources>
+    <color name="bg_night">#0D1117</color>
+    <color name="surface_card">#161B22</color>
+    <color name="surface_button">#21262D</color>
+    <color name="surface_button_pressed">#30363D</color>
+    <color name="border_subtle">#30363D</color>
+    <color name="text_primary">#F0F6FC</color>
+    <color name="text_secondary">#8B949E</color>
+    <color name="accent_power">#DA3633</color>
+    <color name="accent_wake">#D29922</color>
+    <color name="accent_voice">#1F6FEB</color>
+    <color name="accent_ok">#238636</color>
+    <color name="accent_youtube">#E53935</color>
+    <color name="dot_connected">#3FB950</color>
+    <color name="dot_idle">#D29922</color>
+    <color name="dot_disconnected">#F85149</color>
+</resources>
