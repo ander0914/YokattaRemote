@@ -5,10 +5,14 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
@@ -24,16 +28,39 @@ import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
 
-    private lateinit var hidManager: BluetoothHidManager
+    private var hidService: HidForegroundService? = null
+    private var isBound = false
+
     private lateinit var tvStatus: TextView
     private lateinit var statusDot: View
     private lateinit var btnConnect: MaterialButton
 
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as HidForegroundService.LocalBinder
+            hidService = binder.getService()
+            isBound = true
+            hidService?.uiListener = this@MainActivity
+            syncUiWithService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            hidService?.uiListener = null
+            hidService = null
+            isBound = false
+        }
+    }
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (results.values.all { it }) {
-            hidManager.start()
+        val btGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            results[Manifest.permission.BLUETOOTH_CONNECT] == true ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        if (btGranted) {
+            startAndBindHidService()
         } else {
             Toast.makeText(this, "需要藍牙權限才能連線好咖機", Toast.LENGTH_LONG).show()
         }
@@ -43,7 +70,6 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 避開 Android 15 頂部狀態列與底部導覽列重疊
         val rootView = findViewById<View>(R.id.rootScroll)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -55,12 +81,15 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         statusDot = findViewById(R.id.statusDot)
         btnConnect = findViewById(R.id.btnConnect)
 
-        hidManager = BluetoothHidManager(this, this)
-
         setupRemoteButtons()
         btnConnect.setOnClickListener {
             vibrate(it)
-            if (hidManager.isConnected()) {
+            val manager = hidService?.hidManager
+            if (manager == null) {
+                Toast.makeText(this, "藍牙服務啟動中，請稍候", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (manager.isConnected()) {
                 showConnectedMenu()
             } else {
                 showDevicePickerDialog()
@@ -70,27 +99,72 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         checkPermissionsAndStart()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        hidManager.stop()
+    override fun onStart() {
+        super.onStart()
+        if (!isBound && hasBluetoothPermission()) {
+            bindService(
+                Intent(this, HidForegroundService::class.java),
+                serviceConnection,
+                Context.BIND_AUTO_CREATE
+            )
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isBound) {
+            hidService?.uiListener = null
+            unbindService(serviceConnection)
+            isBound = false
+        }
+    }
+
+    private fun hasBluetoothPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
     }
 
     private fun checkPermissionsAndStart() {
+        val required = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val required = arrayOf(
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_ADVERTISE
-            )
-            val missing = required.filter {
-                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-            }
-            if (missing.isNotEmpty()) {
-                permissionLauncher.launch(missing.toTypedArray())
-                return
-            }
+            required.add(Manifest.permission.BLUETOOTH_CONNECT)
+            required.add(Manifest.permission.BLUETOOTH_SCAN)
+            required.add(Manifest.permission.BLUETOOTH_ADVERTISE)
         }
-        hidManager.start()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            required.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        val missing = required.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            permissionLauncher.launch(missing.toTypedArray())
+        } else {
+            startAndBindHidService()
+        }
+    }
+
+    private fun startAndBindHidService() {
+        val intent = Intent(this, HidForegroundService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+        if (!isBound) {
+            bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    private fun syncUiWithService() {
+        val manager = hidService?.hidManager ?: return
+        if (manager.isConnected()) {
+            onConnectionStateChanged(manager.getConnectedDevice(), BluetoothProfile.STATE_CONNECTED)
+        } else if (manager.isAppRegistered) {
+            onServiceReady(true)
+        } else {
+            tvStatus.text = "初始化藍牙服務..."
+            statusDot.setBackgroundResource(R.drawable.bg_dot_idle)
+        }
     }
 
     private fun setupRemoteButtons() {
@@ -99,7 +173,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         findViewById<View>(R.id.btnWake).setOnClickListener {
             vibrate(it)
             if (!ensureConnected()) return@setOnClickListener
-            hidManager.tapKeyboardKey(0x00, HidDescriptor.MOD_LEFT_SHIFT)
+            hidService?.hidManager?.tapKeyboardKey(0x00, HidDescriptor.MOD_LEFT_SHIFT)
         }
         bindConsumerTap(R.id.btnVoice, HidDescriptor.CONSUMER_VOICE_ASSIST)
 
@@ -115,8 +189,13 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindKeyboardHold(R.id.btnDown, HidDescriptor.KEY_DOWN)
         bindKeyboardHold(R.id.btnLeft, HidDescriptor.KEY_LEFT)
         bindKeyboardHold(R.id.btnRight, HidDescriptor.KEY_RIGHT)
-        // OK 改用標準 HID Menu Pick (0x0041 -> KEYCODE_DPAD_CENTER)，等同點擊目前選取的項目
-        bindConsumerTap(R.id.btnOk, HidDescriptor.CONSUMER_DPAD_CENTER)
+
+        // OK 鍵：送出標準滑鼠左鍵點擊（等同在畫面游標處點擊一下）
+        findViewById<View>(R.id.btnOk).setOnClickListener {
+            vibrate(it)
+            if (!ensureConnected()) return@setOnClickListener
+            hidService?.hidManager?.tapMouseLeftClick()
+        }
 
         // 4. Android 系統導覽列（返回、首頁、最近使用程式）
         bindConsumerTap(R.id.btnBack, HidDescriptor.CONSUMER_BACK)
@@ -128,8 +207,9 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerTap(R.id.btnPlayPause, HidDescriptor.CONSUMER_PLAY_PAUSE)
         bindConsumerTap(R.id.btnNext, HidDescriptor.CONSUMER_NEXT_TRACK)
 
-        // 6. 倒退 10 秒 / 快進 10 秒（改用 Android 原生媒體快退 0x00B4 / 快進 0x00B3）
+        // 6. 倒退 10 秒 / YouTube 啟動鍵 / 快進 10 秒
         bindConsumerTap(R.id.btnYtRewind, HidDescriptor.CONSUMER_REWIND)
+        bindKeyboardTap(R.id.btnYoutube, HidDescriptor.KEY_F12)
         bindConsumerTap(R.id.btnYtForward, HidDescriptor.CONSUMER_FAST_FORWARD)
     }
 
@@ -137,7 +217,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         findViewById<View>(viewId).setOnClickListener {
             vibrate(it)
             if (!ensureConnected()) return@setOnClickListener
-            hidManager.tapConsumerKey(usageId)
+            hidService?.hidManager?.tapConsumerKey(usageId)
         }
     }
 
@@ -149,13 +229,13 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
                     v.isPressed = true
                     vibrate(v)
                     if (ensureConnected()) {
-                        hidManager.sendConsumerDown(usageId)
+                        hidService?.hidManager?.sendConsumerDown(usageId)
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    hidManager.sendConsumerUp()
+                    hidService?.hidManager?.sendConsumerUp()
                     true
                 }
                 else -> false
@@ -167,7 +247,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         findViewById<View>(viewId).setOnClickListener {
             vibrate(it)
             if (!ensureConnected()) return@setOnClickListener
-            hidManager.tapKeyboardKey(keyCode, modifier)
+            hidService?.hidManager?.tapKeyboardKey(keyCode, modifier)
         }
     }
 
@@ -179,13 +259,13 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
                     v.isPressed = true
                     vibrate(v)
                     if (ensureConnected()) {
-                        hidManager.sendKeyboardDown(keyCode, modifier)
+                        hidService?.hidManager?.sendKeyboardDown(keyCode, modifier)
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     v.isPressed = false
-                    hidManager.sendKeyboardUp()
+                    hidService?.hidManager?.sendKeyboardUp()
                     true
                 }
                 else -> false
@@ -194,7 +274,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
     }
 
     private fun ensureConnected(): Boolean {
-        if (!hidManager.isConnected()) {
+        if (hidService?.hidManager?.isConnected() != true) {
             Toast.makeText(this, "尚未連線到好咖機，請先點擊右上角「連線」", Toast.LENGTH_SHORT).show()
             return false
         }
@@ -207,7 +287,8 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
 
     @SuppressLint("MissingPermission")
     private fun showDevicePickerDialog() {
-        val devices = hidManager.getBondedDevices()
+        val manager = hidService?.hidManager ?: return
+        val devices = manager.getBondedDevices()
         if (devices.isEmpty()) {
             AlertDialog.Builder(this)
                 .setTitle("尚未配對任何藍牙裝置")
@@ -226,7 +307,7 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
             .setItems(names) { _, which ->
                 val target = devices[which]
                 tvStatus.text = "連線中：${target.name ?: target.address}..."
-                hidManager.connect(target)
+                manager.connect(target)
             }
             .setNeutralButton("開放手機被搜尋") { _, _ ->
                 requestDiscoverable()
@@ -236,14 +317,15 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
     }
 
     private fun showConnectedMenu() {
+        val manager = hidService?.hidManager ?: return
         AlertDialog.Builder(this)
-            .setTitle("已連線：${hidManager.getConnectedDeviceName()}")
-            .setMessage("目前遙控器運作正常，要中斷連線或切換其他裝置嗎？")
+            .setTitle("已連線：${manager.getConnectedDeviceName()}")
+            .setMessage("藍牙已在背景持續維持中，要中斷連線或切換其他裝置嗎？")
             .setPositiveButton("中斷連線") { _, _ ->
-                hidManager.disconnect()
+                manager.disconnect()
             }
             .setNeutralButton("切換裝置") { _, _ ->
-                hidManager.disconnect()
+                manager.disconnect()
                 showDevicePickerDialog()
             }
             .setNegativeButton("繼續使用", null)
@@ -258,9 +340,8 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         startActivity(intent)
     }
 
-    // === BluetoothHidManager.Listener ===
     override fun onServiceReady(registered: Boolean) {
-        if (registered && !hidManager.isConnected()) {
+        if (registered && hidService?.hidManager?.isConnected() != true) {
             tvStatus.text = "待命中（請點右上角連線）"
             statusDot.setBackgroundResource(R.drawable.bg_dot_idle)
         }
@@ -274,7 +355,6 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
                 tvStatus.text = "已連線：$name"
                 statusDot.setBackgroundResource(R.drawable.bg_dot_connected)
                 btnConnect.text = "已連線"
-                Toast.makeText(this, "已成功連線至 $name", Toast.LENGTH_SHORT).show()
             }
             BluetoothProfile.STATE_CONNECTING -> {
                 tvStatus.text = "連線中..."

@@ -14,8 +14,7 @@ import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
 class BluetoothHidManager(
-    private val context: Context,
-    private val listener: Listener
+    private val context: Context
 ) {
     interface Listener {
         fun onServiceReady(registered: Boolean)
@@ -23,13 +22,18 @@ class BluetoothHidManager(
         fun onError(message: String)
     }
 
+    var listener: Listener? = null
+
     private val bluetoothManager =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
     val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
 
     private var hidDevice: BluetoothHidDevice? = null
     private var connectedHost: BluetoothDevice? = null
-    private var isAppRegistered = false
+    var isAppRegistered: Boolean = false
+        private set
+    var currentState: Int = BluetoothProfile.STATE_DISCONNECTED
+        private set
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -47,7 +51,8 @@ class BluetoothHidManager(
                 hidDevice = null
                 connectedHost = null
                 isAppRegistered = false
-                mainHandler.post { listener.onServiceReady(false) }
+                currentState = BluetoothProfile.STATE_DISCONNECTED
+                mainHandler.post { listener?.onServiceReady(false) }
             }
         }
     }
@@ -56,22 +61,27 @@ class BluetoothHidManager(
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             isAppRegistered = registered
             mainHandler.post {
-                listener.onServiceReady(registered)
+                listener?.onServiceReady(registered)
             }
         }
 
         override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
+            currentState = state
             connectedHost = if (state == BluetoothProfile.STATE_CONNECTED) device else null
             mainHandler.post {
-                listener.onConnectionStateChanged(device, state)
+                listener?.onConnectionStateChanged(device, state)
             }
         }
     }
 
     fun start() {
+        if (hidDevice != null && isAppRegistered) {
+            mainHandler.post { listener?.onServiceReady(true) }
+            return
+        }
         val adapter = bluetoothAdapter
         if (adapter == null || !adapter.isEnabled) {
-            listener.onError("請先開啟手機藍牙功能")
+            mainHandler.post { listener?.onError("請先開啟手機藍牙功能") }
             return
         }
         adapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
@@ -90,6 +100,7 @@ class BluetoothHidManager(
             hidDevice = null
             connectedHost = null
             isAppRegistered = false
+            currentState = BluetoothProfile.STATE_DISCONNECTED
         }
     }
 
@@ -111,7 +122,7 @@ class BluetoothHidManager(
     fun connect(device: BluetoothDevice) {
         val hid = hidDevice
         if (hid == null || !isAppRegistered) {
-            listener.onError("藍牙 HID 服務尚未就緒，請稍候再試")
+            mainHandler.post { listener?.onError("藍牙 HID 服務尚未就緒，請稍候再試") }
             return
         }
         hid.connect(device)
@@ -123,6 +134,8 @@ class BluetoothHidManager(
     }
 
     fun isConnected(): Boolean = connectedHost != null
+
+    fun getConnectedDevice(): BluetoothDevice? = connectedHost
 
     fun getConnectedDeviceName(): String? = connectedHost?.name ?: connectedHost?.address
 
@@ -162,5 +175,17 @@ class BluetoothHidManager(
     fun tapConsumerKey(usageId: Int) {
         if (!sendConsumerDown(usageId)) return
         mainHandler.postDelayed({ sendConsumerUp() }, 80)
+    }
+
+    // === Mouse Reports ===
+    fun tapMouseLeftClick() {
+        val host = connectedHost ?: return
+        val downReport = byteArrayOf(0x01, 0x00, 0x00)
+        val upReport = byteArrayOf(0x00, 0x00, 0x00)
+        if (hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, downReport) == true) {
+            mainHandler.postDelayed({
+                hidDevice?.sendReport(host, HidDescriptor.REPORT_ID_MOUSE, upReport)
+            }, 80)
+        }
     }
 }
