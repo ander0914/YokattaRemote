@@ -18,6 +18,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
@@ -40,6 +42,14 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // 避開 Android 15 頂部狀態列與底部導覽列重疊
+        val rootView = findViewById<View>(R.id.rootScroll)
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         tvStatus = findViewById(R.id.tvStatus)
         statusDot = findViewById(R.id.statusDot)
@@ -86,7 +96,6 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
     private fun setupRemoteButtons() {
         // 1. 電源/休眠、喚醒、語音
         bindConsumerTap(R.id.btnPower, HidDescriptor.CONSUMER_POWER)
-        // 喚醒螢幕：發送 Left Shift 鍵按下與放開，可在休眠時喚醒螢幕，且螢幕已亮時不會誤觸關機或點擊
         findViewById<View>(R.id.btnWake).setOnClickListener {
             vibrate(it)
             if (!ensureConnected()) return@setOnClickListener
@@ -101,12 +110,13 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerHold(R.id.btnVolUp, HidDescriptor.CONSUMER_VOLUME_UP)
         bindConsumerHold(R.id.btnVolDown, HidDescriptor.CONSUMER_VOLUME_DOWN)
 
-        // 3. 方向鍵與 OK（支援長按連發）
+        // 3. 方向鍵與 OK
         bindKeyboardHold(R.id.btnUp, HidDescriptor.KEY_UP)
         bindKeyboardHold(R.id.btnDown, HidDescriptor.KEY_DOWN)
         bindKeyboardHold(R.id.btnLeft, HidDescriptor.KEY_LEFT)
         bindKeyboardHold(R.id.btnRight, HidDescriptor.KEY_RIGHT)
-        bindKeyboardTap(R.id.btnOk, HidDescriptor.KEY_ENTER)
+        // OK 改用標準 HID Menu Pick (0x0041 -> KEYCODE_DPAD_CENTER)，等同點擊目前選取的項目
+        bindConsumerTap(R.id.btnOk, HidDescriptor.CONSUMER_DPAD_CENTER)
 
         // 4. Android 系統導覽列（返回、首頁、最近使用程式）
         bindConsumerTap(R.id.btnBack, HidDescriptor.CONSUMER_BACK)
@@ -118,9 +128,9 @@ class MainActivity : AppCompatActivity(), BluetoothHidManager.Listener {
         bindConsumerTap(R.id.btnPlayPause, HidDescriptor.CONSUMER_PLAY_PAUSE)
         bindConsumerTap(R.id.btnNext, HidDescriptor.CONSUMER_NEXT_TRACK)
 
-        // 6. YouTube 專屬倒退 / 快進 10 秒 (J / L)
-        bindKeyboardTap(R.id.btnYtRewind, HidDescriptor.KEY_J)
-        bindKeyboardTap(R.id.btnYtForward, HidDescriptor.KEY_L)
+        // 6. 倒退 10 秒 / 快進 10 秒（改用 Android 原生媒體快退 0x00B4 / 快進 0x00B3）
+        bindConsumerTap(R.id.btnYtRewind, HidDescriptor.CONSUMER_REWIND)
+        bindConsumerTap(R.id.btnYtForward, HidDescriptor.CONSUMER_FAST_FORWARD)
     }
 
     private fun bindConsumerTap(viewId: Int, usageId: Int) {

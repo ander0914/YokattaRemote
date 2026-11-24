@@ -32,7 +32,7 @@ object HidDescriptor {
         0x81.toByte(), 0x00.toByte(),       //   Input (Data, Array) - Keycodes
         0xC0.toByte(),                      // End Collection
 
-        // === Report ID 2: Consumer Control (Media, System, Brightness, Voice, Power) ===
+        // === Report ID 2: Consumer Control (Media, System, Brightness, Voice, Power, Menu Pick) ===
         0x05.toByte(), 0x0C.toByte(),       // Usage Page (Consumer)
         0x09.toByte(), 0x01.toByte(),       // Usage (Consumer Control)
         0xA1.toByte(), 0x01.toByte(),       // Collection (Application)
@@ -53,9 +53,7 @@ object HidDescriptor {
     const val MOD_LEFT_GUI: Byte = 0x08     // Meta / Android key
 
     // Keyboard Usage IDs (Page 0x07)
-    const val KEY_J: Byte = 0x0D            // YouTube Rewind 10s
-    const val KEY_L: Byte = 0x0F            // YouTube Fast Forward 10s
-    const val KEY_ENTER: Byte = 0x28        // OK / Confirm
+    const val KEY_ENTER: Byte = 0x28        // Return / Enter
     const val KEY_TAB: Byte = 0x2B          // Used with MOD_LEFT_GUI for Recents
     const val KEY_RIGHT: Byte = 0x4F
     const val KEY_LEFT: Byte = 0x50
@@ -64,8 +62,11 @@ object HidDescriptor {
 
     // Consumer Control Usage IDs (Page 0x0C, mapped in Android Generic.kl)
     const val CONSUMER_POWER: Int = 0x0030           // Sleep / Power Toggle
+    const val CONSUMER_DPAD_CENTER: Int = 0x0041     // Menu Pick -> KEYCODE_DPAD_CENTER (OK / 點擊選項)
     const val CONSUMER_BRIGHTNESS_UP: Int = 0x006F   // Brightness +
     const val CONSUMER_BRIGHTNESS_DOWN: Int = 0x0070 // Brightness -
+    const val CONSUMER_FAST_FORWARD: Int = 0x00B3    // MEDIA_FAST_FORWARD (快進 10 秒)
+    const val CONSUMER_REWIND: Int = 0x00B4          // MEDIA_REWIND (倒退 10 秒)
     const val CONSUMER_NEXT_TRACK: Int = 0x00B5      // Next Track
     const val CONSUMER_PREV_TRACK: Int = 0x00B6      // Previous Track
     const val CONSUMER_PLAY_PAUSE: Int = 0x00CD      // Play / Pause

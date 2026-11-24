@@ -13,14 +13,26 @@
         <item name="strokeColor">@color/border_subtle</item>
         <item name="strokeWidth">1dp</item>
         <item name="cornerRadius">16dp</item>
-        <item name="android:textSize">15sp</item>
+        <item name="android:textSize">13dp</item>
         <item name="android:textStyle">bold</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:autoSizeTextType">uniform</item>
+        <item name="android:autoSizeMinTextSize">9dp</item>
+        <item name="android:autoSizeMaxTextSize">13dp</item>
+        <item name="android:autoSizeStepGranularity">1dp</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingTop">0dp</item>
+        <item name="android:paddingBottom">0dp</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
-        <item name="android:minHeight">54dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">48dp</item>
     </style>
 
     <style name="RemoteRoundButton" parent="RemoteButton">
         <item name="cornerRadius">999dp</item>
+        <item name="android:paddingStart">2dp</item>
+        <item name="android:paddingEnd">2dp</item>
     </style>
 </resources>

@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_night"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="14dp">
 
         <!-- 頂部狀態列 -->
         <LinearLayout
@@ -38,29 +40,32 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:text="好咖機萬能遙控器"
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp"
+                    android:textSize="15dp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:maxLines="1"
                     android:text="初始化中..."
                     android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:textSize="12dp" />
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnConnect"
                 style="@style/RemoteButton"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:minHeight="40dp"
-                android:paddingHorizontal="16dp"
+                android:layout_height="38dp"
+                android:minHeight="38dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
                 android:text="連線"
-                android:textSize="13sp"
+                android:textSize="12dp"
                 app:backgroundTint="@color/accent_voice"
                 app:strokeWidth="0dp" />
         </LinearLayout>
@@ -69,18 +74,17 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPower"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
-                android:text="⏻ 休眠/電源"
-                android:textSize="14sp"
+                android:text="🔴 電源/休眠"
                 app:backgroundTint="@color/accent_power"
                 app:strokeWidth="0dp" />
 
@@ -88,11 +92,10 @@
                 android:id="@+id/btnWake"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:layout_marginHorizontal="4dp"
                 android:layout_weight="1"
                 android:text="☀ 喚醒螢幕"
-                android:textSize="14sp"
                 app:backgroundTint="@color/surface_button"
                 app:strokeColor="@color/accent_wake" />
 
@@ -100,11 +103,10 @@
                 android:id="@+id/btnVoice"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:text="🎤 語音"
-                android:textSize="14sp"
                 app:backgroundTint="@color/accent_voice"
                 app:strokeWidth="0dp" />
         </LinearLayout>
@@ -113,7 +115,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_card_night"
             android:gravity="center"
             android:orientation="horizontal"
@@ -130,14 +132,14 @@
                     android:id="@+id/btnBrightUp"
                     style="@style/RemoteButton"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
+                    android:layout_height="48dp"
                     android:text="☀ 亮度 ＋" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnBrightDown"
                     style="@style/RemoteButton"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
+                    android:layout_height="48dp"
                     android:layout_marginTop="8dp"
                     android:text="☀ 亮度 －" />
             </LinearLayout>
@@ -146,12 +148,15 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnMute"
                 style="@style/RemoteRoundButton"
-                android:layout_width="76dp"
-                android:layout_height="76dp"
-                android:layout_marginHorizontal="12dp"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginHorizontal="10dp"
+                android:autoSizeMaxTextSize="12dp"
+                android:autoSizeMinTextSize="9dp"
+                android:maxLines="2"
                 android:text="🔇
 靜音"
-                android:textSize="13sp" />
+                android:textSize="12dp" />
 
             <!-- 音量控制 -->
             <LinearLayout
@@ -164,14 +169,14 @@
                     android:id="@+id/btnVolUp"
                     style="@style/RemoteButton"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
+                    android:layout_height="48dp"
                     android:text="🔊 音量 ＋" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnVolDown"
                     style="@style/RemoteButton"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
+                    android:layout_height="48dp"
                     android:layout_marginTop="8dp"
                     android:text="🔉 音量 －" />
             </LinearLayout>
@@ -179,57 +184,62 @@
 
         <!-- 第三排：圓形十字方向鍵盤 (D-Pad) -->
         <FrameLayout
-            android:layout_width="240dp"
-            android:layout_height="240dp"
+            android:layout_width="232dp"
+            android:layout_height="232dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             android:background="@drawable/bg_dpad_ring"
             android:padding="10dp">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnUp"
                 style="@style/RemoteRoundButton"
-                android:layout_width="72dp"
-                android:layout_height="62dp"
+                android:layout_width="68dp"
+                android:layout_height="58dp"
                 android:layout_gravity="top|center_horizontal"
+                android:autoSizeMaxTextSize="18dp"
                 android:text="▲"
-                android:textSize="20sp" />
+                android:textSize="18dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDown"
                 style="@style/RemoteRoundButton"
-                android:layout_width="72dp"
-                android:layout_height="62dp"
+                android:layout_width="68dp"
+                android:layout_height="58dp"
                 android:layout_gravity="bottom|center_horizontal"
+                android:autoSizeMaxTextSize="18dp"
                 android:text="▼"
-                android:textSize="20sp" />
+                android:textSize="18dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnLeft"
                 style="@style/RemoteRoundButton"
-                android:layout_width="62dp"
-                android:layout_height="72dp"
+                android:layout_width="58dp"
+                android:layout_height="68dp"
                 android:layout_gravity="start|center_vertical"
+                android:autoSizeMaxTextSize="18dp"
                 android:text="◀"
-                android:textSize="20sp" />
+                android:textSize="18dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnRight"
                 style="@style/RemoteRoundButton"
-                android:layout_width="62dp"
-                android:layout_height="72dp"
+                android:layout_width="58dp"
+                android:layout_height="68dp"
                 android:layout_gravity="end|center_vertical"
+                android:autoSizeMaxTextSize="18dp"
                 android:text="▶"
-                android:textSize="20sp" />
+                android:textSize="18dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnOk"
                 style="@style/RemoteRoundButton"
-                android:layout_width="82dp"
-                android:layout_height="82dp"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
                 android:layout_gravity="center"
+                android:autoSizeMaxTextSize="18dp"
                 android:text="OK"
-                android:textSize="18sp"
+                android:textSize="18dp"
                 app:backgroundTint="@color/accent_ok"
                 app:strokeWidth="0dp" />
         </FrameLayout>
@@ -238,14 +248,14 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="14dp"
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBack"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="54dp"
+                android:layout_height="50dp"
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
                 android:text="↩ 返回" />
@@ -254,7 +264,7 @@
                 android:id="@+id/btnHome"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="54dp"
+                android:layout_height="50dp"
                 android:layout_marginHorizontal="4dp"
                 android:layout_weight="1"
                 android:text="⌂ 首頁" />
@@ -263,17 +273,17 @@
                 android:id="@+id/btnRecents"
                 style="@style/RemoteButton"
                 android:layout_width="0dp"
-                android:layout_height="54dp"
+                android:layout_height="50dp"
                 android:layout_marginStart="6dp"
                 android:layout_weight="1"
                 android:text="▢ 最近" />
         </LinearLayout>
 
-        <!-- 第五排：媒體播放與 YouTube 快進/倒退 -->
+        <!-- 第五排：媒體播放與倒退/快進 10 秒 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_card_night"
             android:orientation="vertical"
             android:padding="12dp">
@@ -287,53 +297,41 @@
                     android:id="@+id/btnPrev"
                     style="@style/RemoteButton"
                     android:layout_width="0dp"
-                    android:layout_height="54dp"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    android:text="⏮ 上一首"
-                    android:textSize="13sp" />
+                    android:text="⏮ 上一首" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnPlayPause"
                     style="@style/RemoteButton"
                     android:layout_width="0dp"
-                    android:layout_height="54dp"
+                    android:layout_height="48dp"
                     android:layout_marginHorizontal="4dp"
                     android:layout_weight="1.2"
-                    android:text="⏯ 播放/暫停"
-                    android:textSize="13sp" />
+                    android:text="⏯ 播放/暫停" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnNext"
                     style="@style/RemoteButton"
                     android:layout_width="0dp"
-                    android:layout_height="54dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
-                    android:text="下一首 ⏭"
-                    android:textSize="13sp" />
+                    android:text="下一首 ⏭" />
             </LinearLayout>
-
-            <!-- YouTube 專屬區 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="6dp"
-                android:text="YouTube 快捷控制"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnYtRewind"
                     style="@style/RemoteButton"
                     android:layout_width="0dp"
-                    android:layout_height="56dp"
+                    android:layout_height="52dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:text="⏪ 倒退 10 秒"
@@ -343,7 +341,7 @@
                     android:id="@+id/btnYtForward"
                     style="@style/RemoteButton"
                     android:layout_width="0dp"
-                    android:layout_height="56dp"
+                    android:layout_height="52dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:text="快進 10 秒 ⏩"

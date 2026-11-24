@@ -141,7 +141,7 @@ class BluetoothHidManager(
 
     fun tapKeyboardKey(keyCode: Byte, modifier: Byte = HidDescriptor.MOD_NONE) {
         if (!sendKeyboardDown(keyCode, modifier)) return
-        mainHandler.postDelayed({ sendKeyboardUp() }, 50)
+        mainHandler.postDelayed({ sendKeyboardUp() }, 80)
     }
 
     // === Consumer Control Reports ===
@@ -161,6 +161,6 @@ class BluetoothHidManager(
 
     fun tapConsumerKey(usageId: Int) {
         if (!sendConsumerDown(usageId)) return
-        mainHandler.postDelayed({ sendConsumerUp() }, 50)
+        mainHandler.postDelayed({ sendConsumerUp() }, 80)
     }
 }
